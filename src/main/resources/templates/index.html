@@ -1,0 +1,321 @@
+<html>
+<head>
+<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+<title>Global real-time currency trading</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="https://www.currencyfair.com/cf-content/themes/cfwp/css/features.css" type="text/css" />
+<link rel="stylesheet" href="/css/plain.css" type="text/css" />
+
+<script type="text/javascript" src="http://maps.google.com/maps/api/js?key=AIzaSyBNPGYNmfH6zWRxQByTG0wJtN5g9ruAUU8"></script>
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+<script type="text/javascript" src="/js/heatmap.js"></script>
+<script type="text/javascript" src="/js/heatmap-gmaps.js"></script>
+<script type="text/javascript" src="/js/browser-check.js"></script>
+<script type="text/javascript" src="/js/jquery-1.11.3.js"></script>
+  
+    <script type="text/javascript">
+      google.charts.load("current", {packages:["corechart"]});
+      google.charts.setOnLoadCallback(drawChart);
+      function drawChart() {
+        var options = {
+          title: 'Most Active Pairs',
+          is3D: true,
+        };
+        
+      }
+    </script>
+
+</head>
+<body>
+	<div id="main">
+		<div id="heatmapArea"></div>
+			<div id="rmidArea">
+		 		<div id="piechart_3d" style="width: 300px; height: 180px;">
+		 			<h5>Waiting for trade....</h5>
+		 		</div>
+			</div>
+			<div id="rbotArea">
+				<div id="barchart_3d" style="width: 300px; height: 180px;">
+		 			<h5>Waiting for trade....</h5>
+				</div>
+			</div>
+			<div id="rtopArea">
+			</div>
+		<div style="position: absolute; width: 1370px; top: 600px; left: 10px; text-align: right;">
+			<div id="gen" class="btn"></div>
+			<br />
+			<a href="http://www.patrick-wied.at/static/heatmapjs/">heatmap.js</a> by <a href="http://www.patrick-wied.at" target="_blank"></a>
+			<div id="debug" style="position: absolute; width: 1200px; top: 100px; left: 10px; text-align: left; color:grey; font-size: x-small"></div>
+		</div>
+	</div>
+	
+	<script type="text/javascript">
+/*<![CDATA[*/
+var map;
+var heatmap; 
+window.onload = function(){
+	var myLatlng = new google.maps.LatLng(53.41291, -8.24389);
+	var myOptions = {
+	  zoom: 2,
+	  center: myLatlng,
+	  mapTypeId: google.maps.MapTypeId.ROADMAP,
+	  //mapTypeId: google.maps.MapTypeId.SATELLITE,
+	  //mapTypeId: google.maps.MapTypeId.HYBRID,
+	  disableDefaultUI: false,
+	  scrollwheel: false,
+	  draggable: false,
+	  navigationControl: false,
+	  mapTypeControl: false,
+	  scaleControl: false,
+	  disableDoubleClickZoom: false
+	};
+	map = new google.maps.Map(document.getElementById("heatmapArea"), myOptions);
+	
+	heatmap = new HeatmapOverlay(map, {
+		"radius":10, 
+		"visible":true, 
+		"opacity":50,
+		"gradient": { 0.45: "rgb(0,0,255)", 0.55: "rgb(0,255,255)", 0.65: "rgb(0,255,0)", 0.95: "yellow", 1.0: "rgb(255,0,0)" }
+		});
+	
+	var testData={
+    	};
+	
+	// this is important, because if you set the data set too early, the latlng/pixel projection doesn't work
+	google.maps.event.addListenerOnce(map, "idle", function(){
+		heatmap.setDataSet(testData);
+	});
+	
+	// Register with SSE Server Sent Event publisher	
+	if (typeof (EventSource) !== "undefined" && !isIE() ) {
+        var source = new EventSource("http://localhost:8082/processor/tradestream");
+        source.onmessage = function(event)  {
+        	document.getElementById("debug").innerHTML = event.data;
+        	obj = JSON.parse(event.data);
+          	heatmap.addDataPoint(obj.lat, obj.lng, 1);
+        	var i = 0;
+          	document.getElementById("rtopArea").innerHTML = 
+        		"<img src=\"/img/flags/" + obj.currencyFrom + ".gif\" style=\"vertical-align: bottom;\" >/" +
+        		"<img src=\"/img/flags/" + obj.currencyTo + ".gif\" style=\"vertical-align: bottom;\" >" +
+        		" @ [" + obj.rate + "] <br/>"
+        		+ document.getElementById("rtopArea").innerHTML;
+        		
+        	drawVolumeChart(obj);
+        	drawStatisticsChart(obj);
+       	};
+	} else {
+		document.getElementById("rtopArea").innerHTML = "Sorry, your browser does not support server-sent events... #bummer";
+		document.getElementById("rtopArea").innerHTML += "<br>";
+		document.getElementById("rtopArea").innerHTML += "<img src=\"/img/incompatible_ie.gif\" width=\"31\" height=\"30\" alt=\"Internet Explorer\" title=\"Internet Explorer\">";
+		document.getElementById("rtopArea").innerHTML += "<img src=\"/img/compatible_firefox.gif\" width=\"31\" height=\"30\" alt=\"Firefox\" title=\"Firefox\">";
+		document.getElementById("rtopArea").innerHTML += "<img src=\"/img/compatible_opera.gif\" width=\"28\" height=\"30\" alt=\"Opera\" title=\"Opera\">";
+		document.getElementById("rtopArea").innerHTML += "<img src=\"/img/compatible_chrome.gif\" width=\"31\" height=\"30\" alt=\"Google Chrome\" title=\"Google Chrome\">";
+		document.getElementById("rtopArea").innerHTML += "<img src=\"/img/compatible_safari.gif\" width=\"28\" height=\"30\" alt=\"Safari\" title=\"Safari\">";
+	}
+	
+	function drawVolumeChart(obj) {
+		 var options = {
+                 title: 'Most Active Pairs (Volume)',
+                 chartArea: {width: '70%'},
+                 is3D: true,
+               };
+    	
+    	var     AUD_CAD = parseInt(obj.AUD_CAD);
+    	var     AUD_CHF = parseInt(obj.AUD_CHF);
+    	var     AUD_JPY = parseInt(obj.AUD_JPY);
+    	var     AUD_NZD = parseInt(obj.AUD_NZD);
+    	var     AUD_USD = parseInt(obj.AUD_USD);
+    	var     BGN_RON = parseInt(obj.BGN_RON);
+    	var     CAD_CHF = parseInt(obj.CAD_CHF);
+    	var     CAD_JPY = parseInt(obj.CAD_JPY);
+    	var     CHF_BGN = parseInt(obj.CHF_BGN);
+    	var     CHF_JPY = parseInt(obj.CHF_JPY);
+    	var     CHF_RON = parseInt(obj.CHF_RON);
+    	var     CHF_TRY = parseInt(obj.CHF_TRY);
+    	var     EUR_AUD = parseInt(obj.EUR_AUD);
+    	var     EUR_CAD = parseInt(obj.EUR_CAD);
+    	var     EUR_CHF = parseInt(obj.EUR_CHF);
+    	var     EUR_CZK = parseInt(obj.EUR_CZK);
+    	var     EUR_DKK = parseInt(obj.EUR_DKK);
+    	var     EUR_GBP = parseInt(obj.EUR_GBP);
+    	var     EUR_HKD = parseInt(obj.EUR_HKD);
+    	var     EUR_HUF = parseInt(obj.EUR_HUF);
+    	var     EUR_ILS = parseInt(obj.EUR_ILS);
+    	var     EUR_JPY = parseInt(obj.EUR_JPY);
+    	var     EUR_MXN = parseInt(obj.EUR_MXN);
+    	var     EUR_NOK = parseInt(obj.EUR_NOK);
+    	var     EUR_NZD = parseInt(obj.EUR_NZD);
+    	var     EUR_PLN = parseInt(obj.EUR_PLN);
+    	var     EUR_RON = parseInt(obj.EUR_RON);
+    	var     EUR_RUB = parseInt(obj.EUR_RUB);
+    	var     EUR_SEK = parseInt(obj.EUR_SEK);
+    	var     EUR_SGD = parseInt(obj.EUR_SGD);
+    	var     EUR_TRY = parseInt(obj.EUR_TRY);
+    	var     EUR_USD = parseInt(obj.EUR_USD);
+    	var     EUR_ZAR = parseInt(obj.EUR_ZAR);
+    	var     GBP_AUD = parseInt(obj.GBP_AUD);
+    	var     GBP_BGN = parseInt(obj.GBP_BGN);
+    	var     GBP_CAD = parseInt(obj.GBP_CAD);
+    	var     GBP_CHF = parseInt(obj.GBP_CHF);
+    	var     GBP_CZK = parseInt(obj.GBP_CZK);
+    	var     GBP_DKK = parseInt(obj.GBP_DKK);
+    	var     GBP_HKD = parseInt(obj.GBP_HKD);
+    	var     GBP_HUF = parseInt(obj.GBP_HUF);
+    	var     GBP_JPY = parseInt(obj.GBP_JPY);
+    	var     GBP_NOK = parseInt(obj.GBP_NOK);
+    	var     GBP_NZD = parseInt(obj.GBP_NZD);
+    	var     GBP_PLN = parseInt(obj.GBP_PLN);
+    	var     GBP_RON = parseInt(obj.GBP_RON);
+    	var     GBP_SEK = parseInt(obj.GBP_SEK);
+    	var     GBP_SGD = parseInt(obj.GBP_SGD);
+    	var     GBP_TRY = parseInt(obj.GBP_TRY);
+    	var     GBP_USD = parseInt(obj.GBP_USD);
+    	var     GBP_ZAR = parseInt(obj.GBP_ZAR);
+    	var     HKD_JPY = parseInt(obj.HKD_JPY);
+    	var     NZD_CAD = parseInt(obj.NZD_CAD);
+    	var     NZD_CHF = parseInt(obj.NZD_CHF);
+    	var     NZD_JPY = parseInt(obj.NZD_JPY);
+    	var     NZD_USD = parseInt(obj.NZD_USD);
+    	var     SGD_HKD = parseInt(obj.SGD_HKD);
+    	var     SGD_JPY = parseInt(obj.SGD_JPY);
+    	var     TRY_BGN = parseInt(obj.TRY_BGN);
+    	var     TRY_JPY = parseInt(obj.TRY_JPY);
+    	var     TRY_RON = parseInt(obj.TRY_RON);
+    	var     USD_BGN = parseInt(obj.USD_BGN);
+    	var     USD_CAD = parseInt(obj.USD_CAD);
+    	var     USD_CHF = parseInt(obj.USD_CHF);
+    	var     USD_CZK = parseInt(obj.USD_CZK);
+    	var     USD_DKK = parseInt(obj.USD_DKK);
+    	var     USD_HKD = parseInt(obj.USD_HKD);
+    	var     USD_HUF = parseInt(obj.USD_HUF);
+    	var     USD_ILS = parseInt(obj.USD_ILS);
+    	var     USD_JPY = parseInt(obj.USD_JPY);
+    	var     USD_MXN = parseInt(obj.USD_MXN);
+    	var     USD_NOK = parseInt(obj.USD_NOK);
+    	var     USD_PLN = parseInt(obj.USD_PLN);
+    	var     USD_RON = parseInt(obj.USD_RON);
+    	var     USD_RUB = parseInt(obj.USD_RUB);
+    	var     USD_SEK = parseInt(obj.USD_SEK);
+    	var     USD_SGD = parseInt(obj.USD_SGD);
+    	var     USD_TRY = parseInt(obj.USD_TRY);
+    	var     USD_ZAR = parseInt(obj.USD_ZAR);
+    	
+    	var array = [
+                  	['Pair', 'Volume'],
+                  	['AUD_CAD',             AUD_CAD],
+                  	['AUD_CHF',             AUD_CHF],
+                  	['AUD_JPY',             AUD_JPY],
+                  	['AUD_NZD',             AUD_NZD],
+                  	['AUD_USD',             AUD_USD],
+                  	['BGN_RON',             BGN_RON],
+                  	['CAD_CHF',             CAD_CHF],
+                  	['CAD_JPY',             CAD_JPY],
+                  	['CHF_BGN',             CHF_BGN],
+                  	['CHF_JPY',             CHF_JPY],
+                  	['CHF_RON',             CHF_RON],
+                  	['CHF_TRY',             CHF_TRY],
+                  	['EUR_AUD',             EUR_AUD],
+                  	['EUR_CAD',             EUR_CAD],
+                  	['EUR_CHF',             EUR_CHF],
+                  	['EUR_CZK',             EUR_CZK],
+                  	['EUR_DKK',             EUR_DKK],
+                  	['EUR_GBP',             EUR_GBP],
+                  	['EUR_HKD',             EUR_HKD],
+                  	['EUR_HUF',             EUR_HUF],
+                  	['EUR_ILS',             EUR_ILS],
+                  	['EUR_JPY',             EUR_JPY],
+                  	['EUR_MXN',             EUR_MXN],
+                  	['EUR_NOK',             EUR_NOK],
+                  	['EUR_NZD',             EUR_NZD],
+                  	['EUR_PLN',             EUR_PLN],
+                  	['EUR_RON',             EUR_RON],
+                  	['EUR_RUB',             EUR_RUB],
+                  	['EUR_SEK',             EUR_SEK],
+                  	['EUR_SGD',             EUR_SGD],
+                  	['EUR_TRY',             EUR_TRY],
+                  	['EUR_USD',             EUR_USD],
+                  	['EUR_ZAR',             EUR_ZAR],
+                  	['GBP_AUD',             GBP_AUD],
+                  	['GBP_BGN',             GBP_BGN],
+                  	['GBP_CAD',             GBP_CAD],
+                  	['GBP_CHF',             GBP_CHF],
+                  	['GBP_CZK',             GBP_CZK],
+                  	['GBP_DKK',             GBP_DKK],
+                  	['GBP_HKD',             GBP_HKD],
+                  	['GBP_HUF',             GBP_HUF],
+                  	['GBP_JPY',             GBP_JPY],
+                  	['GBP_NOK',             GBP_NOK],
+                  	['GBP_NZD',             GBP_NZD],
+                  	['GBP_PLN',             GBP_PLN],
+                  	['GBP_RON',             GBP_RON],
+                  	['GBP_SEK',             GBP_SEK],
+                  	['GBP_SGD',             GBP_SGD],
+                  	['GBP_TRY',             GBP_TRY],
+                  	['GBP_USD',             GBP_USD],
+                  	['GBP_ZAR',             GBP_ZAR],
+                  	['HKD_JPY',             HKD_JPY],
+                  	['NZD_CAD',             NZD_CAD],
+                  	['NZD_CHF',             NZD_CHF],
+                  	['NZD_JPY',             NZD_JPY],
+                  	['NZD_USD',             NZD_USD],
+                  	['SGD_HKD',             SGD_HKD],
+                  	['SGD_JPY',             SGD_JPY],
+                  	['TRY_BGN',             TRY_BGN],
+                  	['TRY_JPY',             TRY_JPY],
+                  	['TRY_RON',             TRY_RON],
+                  	['USD_BGN',             USD_BGN],
+                  	['USD_CAD',             USD_CAD],
+                  	['USD_CHF',             USD_CHF],
+                  	['USD_CZK',             USD_CZK],
+                  	['USD_DKK',             USD_DKK],
+                  	['USD_HKD',             USD_HKD],
+                  	['USD_HUF',             USD_HUF],
+                  	['USD_ILS',             USD_ILS],
+                  	['USD_JPY',             USD_JPY],
+                  	['USD_MXN',             USD_MXN],
+                  	['USD_NOK',             USD_NOK],
+                  	['USD_PLN',             USD_PLN],
+                  	['USD_RON',             USD_RON],
+                  	['USD_RUB',             USD_RUB],
+                  	['USD_SEK',             USD_SEK],
+                  	['USD_SGD',             USD_SGD],
+                  	['USD_TRY',             USD_TRY],
+                  	['USD_ZAR',             USD_ZAR]
+                ];
+    	var data = google.visualization.arrayToDataTable(array);
+		var chart = new google.visualization.PieChart(document.getElementById('piechart_3d'));
+    	chart.draw(data, options);
+	}
+	
+	function drawStatisticsChart(obj) {
+		var     PROCESSED = parseInt(obj.PROCESSED);
+		var     LIVE = parseInt(obj.LIVE);
+		var     MATCHED = parseInt(obj.MATCHED);
+		var     INVALID = parseInt(obj.INVALID);
+    	
+		
+	    var data = google.visualization.arrayToDataTable([
+	       ['Status', 'Trades', { role: 'style' } ],
+	       ['Processed', PROCESSED, 
+	       	'color: #000000'],
+	       ['Live', LIVE, 
+	       	'color: #A8A8A8'],
+	       ['Matched', MATCHED, 
+	       	'color: #00CC33'],
+	       ['Invalid', INVALID, 
+	       'color:  #CC3333'],
+	     ]);
+	     var options = {
+	       title: 'Market Statistics (Today)',
+	       chartArea: {width: '70%'},
+	     };
+	     var chart = new google.visualization.BarChart(document.getElementById('barchart_3d'));
+	     chart.draw(data, options);
+	   }
+	
+};
+/*]]>*/
+</script>
+
+</body>
+</html>
